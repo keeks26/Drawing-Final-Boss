@@ -1,0 +1,43 @@
+# Gradle, Kotlin, and native build caches (at any module level)
+.gradle/
+.kotlin/
+build/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio / IntelliJ local project state
+.idea/
+*.iml
+
+# Local Android SDK configuration and debug captures
+local.properties
+captures/
+
+# Generated app packages, profiling output, and logs
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+*.log
+
+# Local environment files and signing credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+keystore.properties
+signing.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Operating system metadata
+.DS_Store
+._*
+Thumbs.db
+
+# Commit the Gradle wrapper, build scripts, and version catalog.
+# In particular, gradle/wrapper/gradle-wrapper.jar must remain tracked.
