@@ -1,6 +1,7 @@
 package com.keeks26.drawingfinalboss
 
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,6 +25,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +34,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +43,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
+import com.keeks26.drawingfinalboss.data.DrawingLevel
+import com.keeks26.drawingfinalboss.data.FileCatalogCache
+import com.keeks26.drawingfinalboss.data.SupabaseCatalog
+import com.keeks26.drawingfinalboss.data.publicPhotoUrl
+import java.io.File
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -49,108 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
-
-data class ReferencePhoto(
-    val url: String,
-    val gender: ReferenceGender,
-    val credit: String = "Unsplash · curated full-body reference",
-    val isFullBody: Boolean = true
-)
-
-enum class ReferenceGender(val label: String) {
-    WOMAN("Woman"),
-    MAN("Man")
-}
-
-private fun unsplashUrl(photoId: String): String =
-    "https://images.unsplash.com/$photoId?auto=format&fit=max&w=1400&q=85"
-
-enum class DrawingLevel(
-    val title: String,
-    val description: String,
-    val photos: List<ReferencePhoto>
-) {
-    LEVEL_ONE(
-        title = "Level 1 · Foundations",
-        description = "Relaxed, straightforward poses for learning proportion and gesture.",
-        photos = listOf(
-            ReferencePhoto(
-                url = unsplashUrl("photo-1515886657613-9f3515b0c78f"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1539571696357-5a69c17a67c6"),
-                gender = ReferenceGender.MAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1490481651871-ab68de25d43d"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1488161628813-04466f872be2"),
-                gender = ReferenceGender.MAN
-            )
-        )
-    ),
-    LEVEL_TWO(
-        title = "Level 2 · Action",
-        description = "Movement and weight shifts that make your gesture drawings feel alive.",
-        photos = listOf(
-            ReferencePhoto(
-                url = unsplashUrl("photo-1506126613408-eca07ce68773"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1517836357463-d25dfeac3438"),
-                gender = ReferenceGender.MAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1538805060514-97d9cc17730c"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1534438327276-14e5300c3a48"),
-                gender = ReferenceGender.MAN
-            )
-        )
-    ),
-    FINAL_BOSS(
-        title = "Level 3 · Final Boss",
-        description = "Foreshortened angles and difficult viewpoints for a serious challenge.",
-        photos = listOf(
-            ReferencePhoto(
-                url = unsplashUrl("photo-1518611012118-696072aa579a"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1581009146145-b5ef050c2e1a"),
-                gender = ReferenceGender.MAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1546483875-ad9014c88eba"),
-                gender = ReferenceGender.WOMAN
-            ),
-            ReferencePhoto(
-                url = unsplashUrl("photo-1599058917212-d750089bc078"),
-                gender = ReferenceGender.MAN
-            )
-        )
-    )
-}
-
-private fun validateReferenceCatalog() {
-    val allPhotos = DrawingLevel.entries.flatMap { it.photos }
-    val women = allPhotos.count { it.gender == ReferenceGender.WOMAN }
-    val men = allPhotos.count { it.gender == ReferenceGender.MAN }
-
-    require(women == men) { "Reference catalog must contain equal women and men." }
-    require(allPhotos.all { it.isFullBody }) { "Every reference must be marked as full body." }
-    DrawingLevel.entries.forEach { level ->
-        val levelWomen = level.photos.count { it.gender == ReferenceGender.WOMAN }
-        val levelMen = level.photos.count { it.gender == ReferenceGender.MAN }
-        require(levelWomen == levelMen) { "${level.title} must be gender balanced." }
-    }
-}
 
 enum class SessionDuration(val label: String, val seconds: Int?) {
     THIRTY_SECONDS("30 sec", 30),
@@ -164,13 +77,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val catalogModel = ViewModelProvider(this, object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = CatalogViewModel(
+                SupabaseCatalog(
+                    BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_PUBLISHABLE_KEY,
+                    FileCatalogCache(File(applicationContext.filesDir, "reference_catalog"))
+                )
+            ) as T
+        })[CatalogViewModel::class.java]
+
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize().safeDrawingPadding(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    DrawingFinalBossApp()
+                    DrawingFinalBossApp(catalogModel)
                 }
             }
         }
@@ -178,10 +101,8 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun DrawingFinalBossApp() {
-    remember { validateReferenceCatalog() }
-
-    var selectedLevel by rememberSaveable { mutableStateOf(DrawingLevel.LEVEL_ONE) }
+private fun DrawingFinalBossApp(model: CatalogViewModel) {
+    val catalog by model.state.collectAsStateWithLifecycle()
     var selectedDuration by rememberSaveable { mutableStateOf(SessionDuration.ONE_MINUTE) }
     var customDurationSeconds by rememberSaveable { mutableStateOf(600) }
     var sessionStarted by rememberSaveable { mutableStateOf(false) }
@@ -193,16 +114,19 @@ private fun DrawingFinalBossApp() {
 
     if (sessionStarted) {
         SessionScreen(
-            level = selectedLevel,
+            catalog = catalog,
             durationSeconds = selectedDuration.seconds ?: customDurationSeconds,
+            onLoadMore = model::loadMore,
+            onRetry = model::refresh,
             onEndSession = { sessionStarted = false }
         )
     } else {
         HomeScreen(
-            selectedLevel = selectedLevel,
+            catalog = catalog,
+            onRefresh = model::refresh,
             selectedDuration = selectedDuration,
             customDurationSeconds = customDurationSeconds,
-            onLevelSelected = { selectedLevel = it },
+            onLevelSelected = model::selectLevel,
             onDurationSelected = { duration ->
                 if (duration == SessionDuration.CUSTOM) {
                     showCustomDurationDialog = true
@@ -229,7 +153,8 @@ private fun DrawingFinalBossApp() {
 
 @Composable
 private fun HomeScreen(
-    selectedLevel: DrawingLevel,
+    catalog: CatalogState,
+    onRefresh: () -> Unit,
     selectedDuration: SessionDuration,
     customDurationSeconds: Int,
     onLevelSelected: (DrawingLevel) -> Unit,
@@ -260,7 +185,7 @@ private fun HomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Full-body references · 50% women · 50% men",
+                text = "Reference photos for focused drawing practice",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 6.dp)
@@ -277,7 +202,7 @@ private fun HomeScreen(
         items(DrawingLevel.entries) { level ->
             LevelCard(
                 level = level,
-                selected = level == selectedLevel,
+                selected = level == catalog.level,
                 onClick = { onLevelSelected(level) }
             )
         }
@@ -312,15 +237,17 @@ private fun HomeScreen(
         }
 
         item {
+            CatalogNotice(catalog, onRefresh)
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !catalog.loading && catalog.photos.isNotEmpty(),
                 onClick = onStartSession
             ) {
                 Text("Start session", fontSize = 16.sp)
             }
             Text(
-                text = "Photos load from Unsplash when a session starts.",
+                text = "The timer starts when your reference photo is ready.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp)
@@ -431,7 +358,7 @@ private fun CustomDurationDialog(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = minutesText,
-                        onValueChange = { minutesText = it.filter(Char::isDigit) },
+                        onValueChange = { minutesText = it.filter(Char::isDigit).take(4) },
                         label = { Text("Minutes") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -439,7 +366,7 @@ private fun CustomDurationDialog(
                     )
                     OutlinedTextField(
                         value = secondsText,
-                        onValueChange = { secondsText = it.filter(Char::isDigit) },
+                        onValueChange = { secondsText = it.filter(Char::isDigit).take(2) },
                         label = { Text("Seconds") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -460,7 +387,7 @@ private fun CustomDurationDialog(
                 val minutes = minutesText.toIntOrNull() ?: 0
                 val seconds = secondsText.toIntOrNull() ?: 0
                 val totalSeconds = minutes * 60 + seconds
-                if (totalSeconds in 1..3600) {
+                if (seconds in 0..59 && totalSeconds in 1..3600) {
                     onConfirm(totalSeconds)
                 } else {
                     showError = true
@@ -478,149 +405,160 @@ private fun CustomDurationDialog(
 }
 
 @Composable
-private fun SessionScreen(
-    level: DrawingLevel,
-    durationSeconds: Int,
-    onEndSession: () -> Unit
-) {
-    var secondsLeft by rememberSaveable(durationSeconds) { mutableStateOf(durationSeconds) }
-    var isPaused by rememberSaveable { mutableStateOf(false) }
-    var photoIndex by rememberSaveable { mutableStateOf(0) }
-    val photo = level.photos[photoIndex % level.photos.size]
-    var imageFailed by remember(photo.url) { mutableStateOf(false) }
-
-    LaunchedEffect(isPaused, secondsLeft) {
-        if (!isPaused && secondsLeft > 0) {
-            delay(1000L)
-            secondsLeft = (secondsLeft - 1).coerceAtLeast(0)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Reserve room for End before measuring the title, including at
-            // large font sizes and on smaller screens.
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = level.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Reference ${photoIndex + 1} of ${level.photos.size}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+private fun CatalogNotice(catalog: CatalogState, onRetry: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        when {
+            catalog.loading -> {
+                CircularProgressIndicator()
+                Text("Loading references…")
             }
-            OutlinedButton(onClick = onEndSession) {
-                Text("End")
+            catalog.photos.isEmpty() -> {
+                Text(catalog.error ?: "No references yet for this level. Choose another level or check again later.")
+                OutlinedButton(onClick = onRetry) { Text("Try again") }
             }
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            AsyncImage(
-                model = photo.url,
-                contentDescription = "Real person figure drawing reference",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                onError = { imageFailed = true }
-            )
-            if (imageFailed) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Photo unavailable. Check your internet connection.",
-                            modifier = Modifier.padding(24.dp),
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-            if (secondsLeft == 0) {
-                Surface(
-                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.78f),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Time's up",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
-
-        Text(
-            text = "${photo.gender.label} · Full-body · ${photo.credit}",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = formatDuration(secondsLeft),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    if (secondsLeft == 0) {
-                        secondsLeft = durationSeconds
-                    } else {
-                        isPaused = !isPaused
-                    }
-                }
-            ) {
-                Text(if (secondsLeft == 0) "Restart" else if (isPaused) "Resume" else "Pause")
-            }
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    photoIndex = (photoIndex + 1) % level.photos.size
-                    secondsLeft = durationSeconds
-                    isPaused = false
-                }
-            ) {
-                Text("Next pose")
+            else -> {
+                Text(if (catalog.fromCache) {
+                    "Using saved references. Photos you have already viewed may be available offline."
+                } else {
+                    "${catalog.photos.size}${if (catalog.nextCursor != null) "+" else ""} references ready"
+                })
+                OutlinedButton(onClick = onRetry) { Text("Refresh references") }
             }
         }
     }
 }
 
-private fun formatDuration(seconds: Int): String {
-    val minutes = seconds / 60
-    val remainingSeconds = seconds % 60
-    return "%02d:%02d".format(minutes, remainingSeconds)
+@Composable
+private fun SessionScreen(
+    catalog: CatalogState,
+    durationSeconds: Int,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    onEndSession: () -> Unit
+) {
+    if (catalog.photos.isEmpty()) {
+        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            CatalogNotice(catalog, onRetry)
+            OutlinedButton(onClick = onEndSession) { Text("Back to home") }
+        }
+        return
+    }
+
+    // Stable IDs retain the selected photo when another page is appended or the screen rotates.
+    var photoId by rememberSaveable(catalog.level) { mutableStateOf(catalog.photos.first().id) }
+    val photo = catalog.photos.firstOrNull { it.id == photoId } ?: catalog.photos.first()
+    val photoIndex = catalog.photos.indexOf(photo)
+    var remainingMillis by rememberSaveable(photo.id, durationSeconds) {
+        mutableLongStateOf(durationSeconds * 1000L)
+    }
+    var isPaused by rememberSaveable(photo.id) { mutableStateOf(false) }
+    var imageLoaded by remember(photo.id) { mutableStateOf(false) }
+    var imageFailed by remember(photo.id) { mutableStateOf(false) }
+    var imageAttempt by remember(photo.id) { mutableStateOf(0) }
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val foreground = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    val secondsLeft = ((remainingMillis + 999) / 1000).toInt()
+
+    LaunchedEffect(photo.id, isPaused, imageLoaded, foreground, remainingMillis > 0) {
+        if (imageLoaded && !isPaused && foreground && remainingMillis > 0) {
+            var previous = SystemClock.elapsedRealtime()
+            while (remainingMillis > 0) {
+                delay(100)
+                val now = SystemClock.elapsedRealtime()
+                remainingMillis = remainingAfterTick(remainingMillis, now - previous)
+                previous = now
+            }
+        }
+    }
+    LaunchedEffect(photo.id, catalog.photos.size, catalog.nextCursor, catalog.loadingMore, catalog.error) {
+        if (photoIndex >= catalog.photos.size - 3 && catalog.nextCursor != null &&
+            !catalog.loadingMore && catalog.error == null) onLoadMore()
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(catalog.level.title, style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("Reference ${photoIndex + 1} of ${catalog.photos.size}${if (catalog.nextCursor != null) "+" else ""}",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(onClick = onEndSession) { Text("End") }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(18.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            key(photo.id, imageAttempt) {
+                AsyncImage(
+                    model = publicPhotoUrl(BuildConfig.SUPABASE_URL, photo.storagePath),
+                    contentDescription = photo.description,
+                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
+                    onSuccess = { imageFailed = false; imageLoaded = true },
+                    onError = { imageLoaded = false; imageFailed = true }
+                )
+            }
+            if (!imageLoaded && !imageFailed) CircularProgressIndicator()
+            if (imageFailed) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)) {
+                    Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Photo unavailable. Retry or move to the next pose.", textAlign = TextAlign.Center)
+                        TextButton(onClick = { imageFailed = false; imageAttempt++ }) { Text("Retry photo") }
+                    }
+                }
+            }
+            if (remainingMillis == 0L) {
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.78f)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("Time's up", color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        if (photo.caption.isNotBlank()) {
+            Text(photo.caption, style = MaterialTheme.typography.labelSmall,
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+        }
+        if (catalog.fromCache) Text("Using saved references", style = MaterialTheme.typography.labelSmall)
+        if (catalog.error != null) {
+            Text(catalog.error, style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onLoadMore) { Text("Retry loading more") }
+        } else if (catalog.loadingMore) {
+            Text("Loading more references…", style = MaterialTheme.typography.bodySmall)
+        }
+        Text(formatDuration(secondsLeft), Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                modifier = Modifier.weight(1f), enabled = imageLoaded,
+                onClick = {
+                    if (remainingMillis == 0L) { remainingMillis = durationSeconds * 1000L; isPaused = false }
+                    else isPaused = !isPaused
+                }
+            ) { Text(if (remainingMillis == 0L) "Restart" else if (isPaused) "Resume" else "Pause") }
+            OutlinedButton(
+                modifier = Modifier.weight(1f),
+                enabled = !(catalog.loadingMore && photoIndex == catalog.photos.lastIndex),
+                onClick = {
+                    if (photoIndex == catalog.photos.lastIndex && catalog.nextCursor != null) onLoadMore()
+                    else {
+                        photoId = catalog.photos[(photoIndex + 1) % catalog.photos.size].id
+                        // Also reset when a level contains only one reference.
+                        remainingMillis = durationSeconds * 1000L
+                        isPaused = false
+                    }
+                }
+            ) {
+                Text(if (photoIndex == catalog.photos.lastIndex && catalog.nextCursor != null)
+                    "Load more poses" else "Next pose")
+            }
+        }
+    }
 }
