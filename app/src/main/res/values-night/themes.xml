@@ -1,16 +1,18 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.DrawingFinalBoss" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+<resources>
+    <style name="Theme.DrawingFinalBoss" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/studio_rust</item>
+        <item name="colorPrimaryVariant">@color/studio_ink</item>
+        <item name="colorOnPrimary">@color/studio_paper</item>
+        <item name="colorSecondary">@color/studio_rust</item>
+        <item name="android:windowBackground">@color/studio_paper</item>
+        <item name="android:statusBarColor">@color/studio_paper</item>
+        <item name="android:navigationBarColor">@color/studio_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.DrawingFinalBoss.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/studio_paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/studio_ink</item>
+        <item name="postSplashScreenTheme">@style/Theme.DrawingFinalBoss</item>
     </style>
 </resources>

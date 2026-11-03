@@ -9,6 +9,8 @@ This is a hobby project under active development.
 ## Current features
 
 - Three drawing levels: Foundations, Action, and Final Boss.
+- A branded opening sequence, custom studio wordmark, adaptive launcher mark,
+  and warm sketchbook-inspired interface.
 - A curated reference library loaded from Supabase PostgreSQL and Storage.
 - Preset session durations and a custom duration option.
 - A countdown timer with pause, resume, and restart controls.

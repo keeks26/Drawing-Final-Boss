@@ -23,8 +23,8 @@ android {
         applicationId = "com.keeks26.drawingfinalboss"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Publishable client configuration, never a service-role or secret key.
@@ -58,6 +58,7 @@ android {
 dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.core.splashscreen)
     implementation(libs.material)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
