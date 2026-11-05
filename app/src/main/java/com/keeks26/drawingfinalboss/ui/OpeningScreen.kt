@@ -41,7 +41,7 @@ fun OpeningScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             HorizontalDivider(Modifier.width(54.dp), color = StudioColors.Rust, thickness = 2.dp)
             Spacer(Modifier.height(20.dp))
-            Text("MAKE TIME. MAKE MARKS.", style = MaterialTheme.typography.labelMedium,
+            Text("CREATE A LITTLE EVERYDAY", style = MaterialTheme.typography.labelMedium,
                 color = StudioColors.Muted, textAlign = TextAlign.Center)
         }
         Text("YOUR PERSONAL DRAWING STUDIO", Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),

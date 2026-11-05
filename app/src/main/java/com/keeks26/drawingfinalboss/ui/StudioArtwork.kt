@@ -29,7 +29,9 @@ import com.keeks26.drawingfinalboss.R
 @Composable
 fun BrandStamp(modifier: Modifier = Modifier) {
     Box(modifier.clip(RoundedCornerShape(16.dp)).background(StudioColors.Ink), contentAlignment = Alignment.Center) {
-        Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null)
+        // Compose must load the raster asset directly. The XML bitmap wrapper is
+        // valid for Android launcher resources but is not a supported painterResource type.
+        Image(painterResource(R.drawable.app_icon), contentDescription = null)
     }
 }
 
