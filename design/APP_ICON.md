@@ -1,6 +1,8 @@
 # Your custom app icon
 
-The crowned pen nib is a temporary vector mark until your artwork is ready.
+The supplied `Downloads/app-icon.png` artwork is now the launcher and opening-screen mark.
+The source image is 2000 × 2000; the app keeps a 1024 × 1024 copy at
+`app/src/main/res/drawable-nodpi/app_icon.png` so Android can load it consistently.
 
 1. Design on a square 1024 × 1024 canvas in Canva, Figma, Procreate, or another
    drawing tool. A clear photograph/scan of a paper drawing also works as a starting
@@ -20,6 +22,7 @@ themed icons. The assets currently live in:
 - `app/src/main/res/drawable/ic_launcher_foreground.xml`
 - `app/src/main/res/drawable/ic_launcher_monochrome.xml`
 
-The app reuses the foreground mark on the opening screen and home header so your
-final artwork can be applied consistently. The reference-photo collection is
-separate from these branding assets.
+The app reuses the supplied artwork on the opening screen and home header so the
+branding stays consistent. Android applies its launcher mask automatically; keep
+important lettering away from the outside edge. The reference-photo collection
+is separate from these branding assets.

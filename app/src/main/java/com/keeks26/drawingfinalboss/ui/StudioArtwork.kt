@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -27,7 +28,7 @@ import com.keeks26.drawingfinalboss.R
 
 @Composable
 fun BrandStamp(modifier: Modifier = Modifier) {
-    Box(modifier.background(StudioColors.Ink, RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(16.dp)).background(StudioColors.Ink), contentAlignment = Alignment.Center) {
         Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null)
     }
 }
