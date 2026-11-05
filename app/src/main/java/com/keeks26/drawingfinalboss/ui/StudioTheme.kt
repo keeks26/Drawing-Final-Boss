@@ -16,7 +16,9 @@ import androidx.compose.ui.unit.sp
 object StudioColors {
     val Paper = Color(0xFFF6F1E7)
     val Ink = Color(0xFF242C29)
-    val Rust = Color(0xFFAC452C)
+    // A deeper maroon accent keeps the warm studio palette while reducing the
+    // brightness of the previous reddish-orange treatment.
+    val Rust = Color(0xFF8F3B35)
     val Muted = Color(0xFF697064)
     val Line = Color(0xFFDCD5C7)
     val Wash = Color(0xFFEDE6D8)

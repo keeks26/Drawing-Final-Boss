@@ -118,7 +118,7 @@ fun PracticeScreen(
 
             val image: @Composable (Modifier) -> Unit = { modifier ->
                 Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(22.dp)).background(StudioColors.Ink),
+                    Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(22.dp)).background(StudioColors.Paper),
                         contentAlignment = Alignment.Center) {
                         key(photo.id, imageAttempt) {
                             AsyncImage(
